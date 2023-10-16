@@ -5,8 +5,8 @@ version = "0.0.1"
 content = { type = "Playable" }
 ambient_version = "0.3.0"
 
-[components]
-bouncy_created = { type = "Duration" }
+[message.Paint]
+fields = { ray_origin = "Vec3", ray_dir = "Vec3" }
 
 [dependencies]
 base_assets = { deployment = "79plwEq1A0N3t0ExBOMTPM" }
