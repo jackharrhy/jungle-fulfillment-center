@@ -5,6 +5,9 @@ version = "0.0.1"
 content = { type = "Playable" }
 ambient_version = "0.3.0"
 
+[components]
+bouncy_created = { type = "Duration" }
+
 [dependencies]
 base_assets = { deployment = "79plwEq1A0N3t0ExBOMTPM" }
 character_controller = { deployment = "yV6nlkxj25cmkBhd4koe8" }
