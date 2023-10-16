@@ -1,0 +1,12 @@
+[package]
+id = "h2bh4r3nzrtwlkmbsun3ntartssl2iho"
+name = "office"
+version = "0.0.1"
+content = { type = "Playable" }
+ambient_version = "0.3.0"
+
+[dependencies]
+base_assets = { deployment = "79plwEq1A0N3t0ExBOMTPM" }
+character_controller = { deployment = "yV6nlkxj25cmkBhd4koe8" }
+character_animation = { deployment = "4nLmHfcAlZkvWbK0NANMoC" }
+hide_cursor = { deployment = "2ejmKJKgh6b4pTnwWPdv4s" }
