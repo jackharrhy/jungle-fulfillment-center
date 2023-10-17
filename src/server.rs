@@ -4,6 +4,7 @@ use ambient_api::{
         model::components::model_from_url,
         physics::components::{cube_collider, dynamic, plane_collider, sphere_collider},
         player::components::is_player,
+        prefab::components::prefab_from_url,
         primitives::{
             components::{cube, quad},
             concepts::Sphere,
@@ -11,7 +12,7 @@ use ambient_api::{
         rendering::components::color,
         transform::{
             components::{scale, translation},
-            concepts::Transformable,
+            concepts::{Transformable, TransformableOptional},
         },
     },
     prelude::*,
@@ -30,6 +31,19 @@ pub fn main() {
         .with(plane_collider(), ())
         .spawn();
 
+    Entity::new()
+        .with_merge(Transformable {
+            local_to_world: Default::default(),
+            optional: TransformableOptional {
+                scale: Some(Vec3::ONE * 1.),
+                translation: Some(vec3(10., 0., 3.)),
+                ..Default::default()
+            },
+        })
+        .with(prefab_from_url(), packages::this::assets::url("shute.glb"))
+        .spawn();
+
+    /*
     for _ in 0..30 {
         Entity::new()
             .with(cube(), ())
@@ -37,6 +51,7 @@ pub fn main() {
             .with(translation(), (random::<Vec2>() * 20.0 - 10.0).extend(1.))
             .spawn();
     }
+    */
 
     fixed_rate_tick(Duration::from_secs_f32(0.5), |_| {
         Entity::new()

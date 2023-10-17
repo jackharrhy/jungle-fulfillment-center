@@ -1,0 +1,6 @@
+[[pipelines]]
+type = "Models"
+sources = ["*.glb"]
+
+[pipelines.collider]
+type = "FromModel"
