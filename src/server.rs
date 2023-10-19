@@ -22,37 +22,16 @@ use packages::{
     character_controller::components::use_character_controller, this::messages::Paint,
 };
 
-#[main]
-pub fn main() {
+fn build_floor() {
     Entity::new()
         .with(quad(), ())
         .with(scale(), Vec3::ONE * 10.0)
         .with(color(), vec4(1.0, 0.0, 0.0, 1.0))
         .with(plane_collider(), ())
         .spawn();
+}
 
-    Entity::new()
-        .with_merge(Transformable {
-            local_to_world: Default::default(),
-            optional: TransformableOptional {
-                scale: Some(Vec3::ONE * 1.),
-                translation: Some(vec3(10., 0., 3.)),
-                ..Default::default()
-            },
-        })
-        .with(prefab_from_url(), packages::this::assets::url("shute.glb"))
-        .spawn();
-
-    /*
-    for _ in 0..30 {
-        Entity::new()
-            .with(cube(), ())
-            .with(cube_collider(), Vec3::ONE)
-            .with(translation(), (random::<Vec2>() * 20.0 - 10.0).extend(1.))
-            .spawn();
-    }
-    */
-
+fn rain_spheres() {
     fixed_rate_tick(Duration::from_secs_f32(0.5), |_| {
         Entity::new()
             .with_merge(Sphere::suggested())
@@ -67,7 +46,33 @@ pub fn main() {
             .with(remove_at_game_time(), game_time() + Duration::from_secs(5))
             .spawn();
     });
+}
 
+fn build_shute() {
+    Entity::new()
+        .with_merge(Transformable {
+            local_to_world: Default::default(),
+            optional: TransformableOptional {
+                scale: Some(Vec3::ONE * 1.),
+                translation: Some(vec3(10., 0., 3.)),
+                ..Default::default()
+            },
+        })
+        .with(prefab_from_url(), packages::this::assets::url("shute.glb"))
+        .spawn();
+}
+
+fn build_random_cubes() {
+    for _ in 0..30 {
+        Entity::new()
+            .with(cube(), ())
+            .with(cube_collider(), Vec3::ONE)
+            .with(translation(), (random::<Vec2>() * 20.0 - 10.0).extend(1.))
+            .spawn();
+    }
+}
+
+fn listen_for_paint() {
     Paint::subscribe(|ctx, msg| {
         if ctx.client_user_id().is_none() {
             return;
@@ -84,7 +89,9 @@ pub fn main() {
             .with(color(), vec4(0., 1., 0., 1.))
             .spawn();
     });
+}
 
+fn listen_for_players() {
     spawn_query(is_player()).bind(move |players| {
         for (id, _) in players {
             entity::add_components(
@@ -99,4 +106,14 @@ pub fn main() {
             );
         }
     });
+}
+
+#[main]
+pub fn main() {
+    build_floor();
+    rain_spheres();
+    build_shute();
+    build_random_cubes();
+    listen_for_paint();
+    listen_for_players();
 }
