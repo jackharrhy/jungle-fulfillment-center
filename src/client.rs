@@ -1,8 +1,7 @@
 use ambient_api::prelude::*;
 use packages::this::messages::Paint;
 
-#[main]
-pub fn main() {
+fn paint() {
     fixed_rate_tick(Duration::from_millis(20), move |_| {
         let Some(camera_id) = camera::get_active() else {
             return;
@@ -19,4 +18,9 @@ pub fn main() {
             .send_server_unreliable();
         }
     });
+}
+
+#[main]
+pub fn main() {
+    paint();
 }
