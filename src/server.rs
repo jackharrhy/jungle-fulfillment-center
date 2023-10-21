@@ -1,6 +1,8 @@
 use ambient_api::{
     core::{
+        app::components::name,
         ecs::components::remove_at_game_time,
+        hierarchy::components::children,
         model::components::model_from_url,
         physics::components::{cube_collider, dynamic, plane_collider, sphere_collider},
         player::components::is_player,
@@ -11,7 +13,7 @@ use ambient_api::{
         },
         rendering::components::color,
         transform::{
-            components::{scale, translation},
+            components::{rotation, scale, translation},
             concepts::{Transformable, TransformableOptional},
         },
     },
@@ -127,6 +129,58 @@ fn listen_for_interact() {
     });
 }
 
+fn apply_force_to_held_entities() {
+    let held_by_query = query(held_by()).build();
+
+    let cube = Entity::new()
+        .with(cube(), ())
+        .with(translation(), Vec3::new(0., 0., 3.))
+        .with(scale(), Vec3::ONE * 0.5)
+        .with(rotation(), Quat::IDENTITY)
+        .spawn();
+
+    fixed_rate_tick(Duration::from_millis(5), move |_| {
+        let held_entities = held_by_query.evaluate();
+
+        for (held, player) in held_entities {
+            add_force(held, vec3(0., 0., 100.));
+
+            let Some(children) = entity::get_component(player, children()) else {
+                return;
+            };
+
+            let Some(head) = children.iter().find(|entity| {
+                let Some(name) = entity::get_component(**entity, name()) else {
+                    return false;
+                };
+                return name == "Head";
+            }) else {
+                return;
+            };
+
+            let Some(player_trans) = entity::get_component(player, translation()) else {
+                return;
+            };
+            let Some(player_rot) = entity::get_component(player, rotation()) else {
+                return;
+            };
+            let Some(head_trans) = entity::get_component(*head, translation()) else {
+                return;
+            };
+            let Some(head_rot) = entity::get_component(*head, rotation()) else {
+                return;
+            };
+
+            let forward = vec3(0., 0., 2.);
+            let looking = player_rot * head_rot;
+            let held_trans = (player_trans + (head_trans * 0.65)) + looking.mul_vec3(forward);
+
+            entity::set_component(cube, translation(), held_trans);
+            entity::set_component(cube, rotation(), looking);
+        }
+    });
+}
+
 fn listen_for_players() {
     spawn_query(is_player()).bind(move |players| {
         for (id, _) in players {
@@ -147,19 +201,14 @@ fn listen_for_players() {
 #[main]
 pub fn main() {
     build_floor();
-    rain_spheres();
+
     build_shute();
+    rain_spheres();
+
     build_random_cubes();
+
     listen_for_interact();
+    apply_force_to_held_entities();
+
     listen_for_players();
-
-    let held_by_query = query(held_by()).build();
-
-    fixed_rate_tick(Duration::from_millis(20), move |_| {
-        let held_entities = held_by_query.evaluate();
-
-        for (held, _player) in held_entities {
-            add_force(held, vec3(0., 0., 100.));
-        }
-    });
 }

@@ -1,8 +1,9 @@
 [package]
 id = "h2bh4r3nzrtwlkmbsun3ntartssl2iho"
-name = "office"
+name = "jungle-fulfillment-center"
 version = "0.0.1"
 content = { type = "Playable" }
+repostiory = "https://github.com/jackharrhy/jungle-fulfillment-center"
 ambient_version = "0.3.0"
 
 [enums.InteractState]
