@@ -5,8 +5,18 @@ version = "0.0.1"
 content = { type = "Playable" }
 ambient_version = "0.3.0"
 
-[message.Paint]
-fields = { ray_origin = "Vec3", ray_dir = "Vec3" }
+[enums.InteractState]
+description = "Describes the state of an interaction."
+[enums.InteractState.members]
+Pickup = "Pickup"
+LetGo = "LetGo"
+
+[message.Interact]
+fields = { ray_origin = "Vec3", ray_dir = "Vec3", interaction = "InteractState" }
+
+[components]
+holdable = { type = "Empty" }
+held_by = { type = "EntityId" }
 
 [dependencies]
 base_assets = { deployment = "79plwEq1A0N3t0ExBOMTPM" }

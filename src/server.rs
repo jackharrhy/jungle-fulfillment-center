@@ -19,7 +19,12 @@ use ambient_api::{
 };
 use packages::{
     character_animation::components::basic_character_animations,
-    character_controller::components::use_character_controller, this::messages::Paint,
+    character_controller::components::use_character_controller,
+    this::{
+        components::{held_by, holdable},
+        messages::Interact,
+        types::InteractState,
+    },
 };
 
 fn build_floor() {
@@ -67,27 +72,57 @@ fn build_random_cubes() {
         Entity::new()
             .with(cube(), ())
             .with(cube_collider(), Vec3::ONE)
+            .with(dynamic(), true)
+            .with(holdable(), ())
             .with(translation(), (random::<Vec2>() * 20.0 - 10.0).extend(1.))
             .spawn();
     }
 }
 
-fn listen_for_paint() {
-    Paint::subscribe(|ctx, msg| {
+fn listen_for_interact() {
+    let held_by_query = query(held_by()).build();
+
+    Interact::subscribe(move |ctx, msg| {
         if ctx.client_user_id().is_none() {
             return;
         }
 
-        let Some(hit) = physics::raycast_first(msg.ray_origin, msg.ray_dir) else {
+        let Some(client_entity_id) = ctx.client_entity_id() else {
             return;
         };
 
-        Entity::new()
-            .with(cube(), ())
-            .with(translation(), hit.position)
-            .with(scale(), Vec3::ONE * 0.1)
-            .with(color(), vec4(0., 1., 0., 1.))
-            .spawn();
+        if msg.interaction == InteractState::Pickup {
+            let Some(hit) = physics::raycast_first(msg.ray_origin, msg.ray_dir) else {
+                return;
+            };
+
+            if !entity::has_component(hit.entity, holdable()) {
+                return;
+            }
+
+            let None = entity::get_component(hit.entity, color()) else {
+                return;
+            };
+
+            entity::add_components(
+                hit.entity,
+                Entity::new()
+                    .with(color(), vec4(0., 1., 0., 1.))
+                    .with(held_by(), client_entity_id),
+            )
+        } else {
+            let held_entities = held_by_query.evaluate();
+
+            let Some((held_entity, _)) = held_entities
+                .iter()
+                .find(|(_, holder)| *holder == client_entity_id)
+            else {
+                return;
+            };
+
+            entity::remove_component(*held_entity, held_by());
+            entity::remove_component(*held_entity, color());
+        }
     });
 }
 
@@ -114,6 +149,6 @@ pub fn main() {
     rain_spheres();
     build_shute();
     build_random_cubes();
-    listen_for_paint();
+    listen_for_interact();
     listen_for_players();
 }
