@@ -15,6 +15,7 @@ use ambient_api::{
             concepts::{Transformable, TransformableOptional},
         },
     },
+    physics::add_force,
     prelude::*,
 };
 use packages::{
@@ -151,4 +152,14 @@ pub fn main() {
     build_random_cubes();
     listen_for_interact();
     listen_for_players();
+
+    let held_by_query = query(held_by()).build();
+
+    fixed_rate_tick(Duration::from_millis(20), move |_| {
+        let held_entities = held_by_query.evaluate();
+
+        for (held, _player) in held_entities {
+            add_force(held, vec3(0., 0., 100.));
+        }
+    });
 }
