@@ -15,6 +15,9 @@ LetGo = "LetGo"
 [message.Interact]
 fields = { ray_origin = "Vec3", ray_dir = "Vec3", interaction = "InteractState" }
 
+[message.ResetPos]
+fields = {}
+
 [components]
 holdable = { type = "Empty" }
 held_by = { type = "EntityId" }

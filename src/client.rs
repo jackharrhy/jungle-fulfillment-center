@@ -1,5 +1,8 @@
 use ambient_api::{core::messages::Frame, input::is_game_focused, prelude::*};
-use packages::this::{messages::Interact, types::InteractState};
+use packages::this::{
+    messages::{Interact, ResetPos},
+    types::InteractState,
+};
 
 fn send_interaction(interaction: InteractState) {
     let Some(camera_id) = camera::get_active() else {
@@ -23,6 +26,10 @@ pub fn main() {
             return;
         }
         let (delta, _input) = input::get_delta();
+
+        if delta.keys.contains(&KeyCode::R) {
+            ResetPos.send_server_unreliable();
+        }
 
         if !delta.mouse_buttons.is_empty() && delta.mouse_buttons.contains(&MouseButton::Left) {
             send_interaction(InteractState::Pickup);

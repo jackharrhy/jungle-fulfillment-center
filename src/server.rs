@@ -25,7 +25,7 @@ use packages::{
     character_controller::components::{camera_distance, use_character_controller},
     this::{
         components::{held_by, holdable, score},
-        messages::Interact,
+        messages::{Interact, ResetPos},
         types::InteractState,
     },
 };
@@ -87,6 +87,20 @@ fn make_box() -> Entity {
 fn rain_boxes() {
     fixed_rate_tick(Duration::from_secs_f32(2.0), |_| {
         make_box().spawn();
+    });
+}
+
+fn listen_for_reset() {
+    ResetPos::subscribe(move |ctx, _msg| {
+        if ctx.client_user_id().is_none() {
+            return;
+        }
+
+        let Some(client_entity_id) = ctx.client_entity_id() else {
+            return;
+        };
+
+        entity::set_component(client_entity_id, translation(), vec3(0., 0., 1.));
     });
 }
 
@@ -261,6 +275,8 @@ pub fn main() {
     build_level();
 
     rain_boxes();
+
+    listen_for_reset();
 
     listen_for_interact();
     apply_force_to_held_entities();
