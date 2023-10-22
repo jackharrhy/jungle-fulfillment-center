@@ -1,85 +1,93 @@
+use std::f32::consts::PI;
+
 use ambient_api::{
     core::{
-        app::components::name,
-        ecs::components::remove_at_game_time,
+        app::components::{main_scene, name},
         hierarchy::components::children,
+        messages::Frame,
         model::components::model_from_url,
-        physics::components::{cube_collider, dynamic, plane_collider, sphere_collider},
+        physics::components::{cube_collider, dynamic},
         player::components::is_player,
         prefab::components::prefab_from_url,
-        primitives::{
-            components::{cube, quad},
-            concepts::Sphere,
-        },
-        rendering::components::color,
+        primitives::components::cube,
+        rendering::components::{cast_shadows, fog_density, light_diffuse, sky, sun},
         transform::{
-            components::{rotation, scale, translation},
+            components::{rotation, translation},
             concepts::{Transformable, TransformableOptional},
         },
     },
+    element::{use_frame, use_state},
     physics::add_force,
     prelude::*,
 };
 use packages::{
     character_animation::components::basic_character_animations,
-    character_controller::components::use_character_controller,
+    character_controller::components::{camera_distance, use_character_controller},
     this::{
-        components::{held_by, holdable},
+        components::{held_by, holdable, score},
         messages::Interact,
         types::InteractState,
     },
 };
 
-fn build_floor() {
-    Entity::new()
-        .with(quad(), ())
-        .with(scale(), Vec3::ONE * 10.0)
-        .with(color(), vec4(1.0, 0.0, 0.0, 1.0))
-        .with(plane_collider(), ())
-        .spawn();
-}
+const GRAVITY: f32 = 9.82;
 
-fn rain_spheres() {
-    fixed_rate_tick(Duration::from_secs_f32(0.5), |_| {
-        Entity::new()
-            .with_merge(Sphere::suggested())
-            .with_merge(Transformable::suggested())
-            .with(scale(), Vec3::ONE * 0.2)
-            .with(
-                translation(),
-                Vec3::X * 10. + (random::<Vec2>() * 2.0 - 1.0).extend(10.),
-            )
-            .with(sphere_collider(), 0.5)
-            .with(dynamic(), true)
-            .with(remove_at_game_time(), game_time() + Duration::from_secs(5))
-            .spawn();
+fn make_sky_and_sun() {
+    Entity::new().with(sky(), ()).spawn();
+
+    let sun = Entity::new()
+        .with(sun(), 0.0)
+        .with(rotation(), Quat::IDENTITY)
+        .with(main_scene(), ())
+        .with(light_diffuse(), vec3(1.0, 1.0, 1.0))
+        .with(fog_density(), 0.)
+        .spawn();
+
+    Frame::subscribe(move |_| {
+        let time = game_time().as_secs_f32();
+        let rot = Quat::from_axis_angle(vec3(0.0, 1.0, 0.4).normalize(), (time * 0.1) + PI);
+        entity::set_component(sun, rotation(), rot);
     });
 }
 
-fn build_shute() {
+fn build_level() {
     Entity::new()
         .with_merge(Transformable {
             local_to_world: Default::default(),
             optional: TransformableOptional {
                 scale: Some(Vec3::ONE * 1.),
-                translation: Some(vec3(10., 0., 3.)),
                 ..Default::default()
             },
         })
-        .with(prefab_from_url(), packages::this::assets::url("shute.glb"))
+        .with(prefab_from_url(), packages::this::assets::url("level.glb"))
+        .with(cast_shadows(), ())
         .spawn();
 }
 
-fn build_random_cubes() {
-    for _ in 0..30 {
-        Entity::new()
-            .with(cube(), ())
-            .with(cube_collider(), Vec3::ONE)
-            .with(dynamic(), true)
-            .with(holdable(), ())
-            .with(translation(), (random::<Vec2>() * 20.0 - 10.0).extend(1.))
-            .spawn();
-    }
+fn make_box() -> Entity {
+    let starting_point = vec3(0., 10., 10.);
+    let spread = 5.;
+
+    Entity::new()
+        .with(cube(), ())
+        .with(translation(), starting_point)
+        .spawn();
+
+    Entity::new()
+        .with(cube(), ())
+        .with(cube_collider(), Vec3::ONE)
+        .with(dynamic(), true)
+        .with(holdable(), ())
+        .with(
+            translation(),
+            starting_point + (random::<Vec2>() * spread - (spread / 2.)).extend(1.),
+        )
+}
+
+fn rain_boxes() {
+    fixed_rate_tick(Duration::from_secs_f32(2.0), |_| {
+        make_box().spawn();
+    });
 }
 
 fn listen_for_interact() {
@@ -103,16 +111,7 @@ fn listen_for_interact() {
                 return;
             }
 
-            let None = entity::get_component(hit.entity, color()) else {
-                return;
-            };
-
-            entity::add_components(
-                hit.entity,
-                Entity::new()
-                    .with(color(), vec4(0., 1., 0., 1.))
-                    .with(held_by(), client_entity_id),
-            )
+            entity::add_components(hit.entity, Entity::new().with(held_by(), client_entity_id))
         } else {
             let held_entities = held_by_query.evaluate();
 
@@ -124,7 +123,6 @@ fn listen_for_interact() {
             };
 
             entity::remove_component(*held_entity, held_by());
-            entity::remove_component(*held_entity, color());
         }
     });
 }
@@ -132,19 +130,10 @@ fn listen_for_interact() {
 fn apply_force_to_held_entities() {
     let held_by_query = query(held_by()).build();
 
-    let cube = Entity::new()
-        .with(cube(), ())
-        .with(translation(), Vec3::new(0., 0., 3.))
-        .with(scale(), Vec3::ONE * 0.5)
-        .with(rotation(), Quat::IDENTITY)
-        .spawn();
-
     fixed_rate_tick(Duration::from_millis(5), move |_| {
         let held_entities = held_by_query.evaluate();
 
         for (held, player) in held_entities {
-            add_force(held, vec3(0., 0., 100.));
-
             let Some(children) = entity::get_component(player, children()) else {
                 return;
             };
@@ -171,12 +160,28 @@ fn apply_force_to_held_entities() {
                 return;
             };
 
-            let forward = vec3(0., 0., 2.);
+            let forward = vec3(0., 0., 4.);
             let looking = player_rot * head_rot;
-            let held_trans = (player_trans + (head_trans * 0.65)) + looking.mul_vec3(forward);
+            let held_dest_trans = (player_trans + (head_trans * 0.65)) + looking.mul_vec3(forward);
 
-            entity::set_component(cube, translation(), held_trans);
-            entity::set_component(cube, rotation(), looking);
+            let Some(held_trans) = entity::get_component(held, translation()) else {
+                return;
+            };
+
+            let force_vec = (held_dest_trans - held_trans).normalize();
+
+            let max_force = 300.;
+            let distance = held_dest_trans.distance(held_trans);
+
+            let wanted_force = distance * (max_force / 4.);
+            let force = if wanted_force > max_force {
+                max_force
+            } else {
+                wanted_force
+            };
+
+            add_force(held, vec3(0., 0., GRAVITY));
+            add_force(held, force_vec * force);
         }
     });
 }
@@ -192,23 +197,76 @@ fn listen_for_players() {
                         model_from_url(),
                         packages::base_assets::assets::url("Y Bot.fbx"),
                     )
-                    .with(basic_character_animations(), id),
+                    .with(basic_character_animations(), id)
+                    .with(camera_distance(), -1.),
             );
+        }
+    });
+}
+
+#[element_component]
+fn App(hooks: &mut Hooks) -> Element {
+    let (holdable_count, set_holdable_count) = use_state(hooks, 0);
+    let (score_number, set_score_number) = use_state(hooks, 0);
+
+    let holdable_by_query = query(holdable()).build();
+    let score_query = query(score()).build();
+
+    use_frame(hooks, move |_world| {
+        let holdable = holdable_by_query.evaluate();
+
+        set_holdable_count(holdable.len());
+
+        let scores = score_query.evaluate();
+        for (score_entity, _) in scores {
+            let Some(score) = entity::get_component(score_entity, score()) else {
+                continue;
+            };
+
+            set_score_number(score);
+        }
+    });
+
+    FlowColumn::el([Text::el(format!(
+        "You have a score of {score_number}, there are {holdable_count} boxes left to pick up."
+    ))])
+    .with_padding_even(STREET)
+    .with(space_between_items(), 100.)
+}
+
+fn despawn_and_count_disposed_cubes() {
+    let holdable_by_query = query(holdable()).build();
+
+    let score_entity = Entity::new().with(score(), 0).spawn();
+
+    Frame::subscribe(move |_| {
+        let holdables = holdable_by_query.evaluate();
+
+        for (holdable, _) in holdables {
+            let Some(holdable_trans) = entity::get_component(holdable, translation()) else {
+                return;
+            };
+
+            if holdable_trans.z < -4. {
+                entity::despawn(holdable);
+                entity::mutate_component(score_entity, score(), |old_score| *old_score += 1);
+            }
         }
     });
 }
 
 #[main]
 pub fn main() {
-    build_floor();
+    make_sky_and_sun();
+    build_level();
 
-    build_shute();
-    rain_spheres();
-
-    build_random_cubes();
+    rain_boxes();
 
     listen_for_interact();
     apply_force_to_held_entities();
+    despawn_and_count_disposed_cubes();
 
     listen_for_players();
+
+    App.el().spawn_interactive();
 }
